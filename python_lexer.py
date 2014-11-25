@@ -22,6 +22,14 @@ class LineContinuation(Token): pass
 class Indent(Token): pass
 class Dedent(Token): pass
 
+# TODO: implement rules for the following tokens
+class StringLiteral(Token): pass
+class Integer(Token): pass
+class LongInteger(Token): pass
+class FloatInteger(Token): pass
+class ImagNumber(Token): pass
+
+
 class Main(State):
     '''Entry point for the lexer.
     '''

@@ -124,6 +124,12 @@ body_map = {
     'meta': character,
 }
 
+def print_sexp(sexp):
+    for i in sexp:
+        map[i[0]](i, output)
+    print(output.getvalue())
+
+
 if __name__ == '__main__':
     for i in z:
         map[i[0]](i, output)

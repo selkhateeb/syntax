@@ -1,6 +1,10 @@
 #! /usr/bin/env python
 
 import re
+import inspect
+
+import lexer
+
 
 class Language(object):
 
@@ -33,6 +37,41 @@ class Language(object):
     def __repr__(self):
         return self.__class__.__name__
 
+    def __add__(self, other):
+        if isinstance(other, list):
+            assert len(other) == 1
+            language = Optional.make(other[0])
+
+        elif other == _: # one or more
+            language = Star.make(self)
+
+        else:
+            language = self._grammar.to_language(other)
+
+        and_ = And.make(self, language)
+        # TODO: we are passing out hack along the way
+        and_._grammar = self._grammar
+        return and_
+
+    def __or__(self, other):
+        if isinstance(other, list):
+            assert len(other) == 1
+            language = Optional.make(other[0])
+
+        else:
+            language = self._grammar.to_language(other)
+
+        or_ = Or.make(self, language)
+        # TODO: we are passing out hack along the way
+        or_._grammar = self._grammar
+        return or_
+
+    def __mul__(self, other):
+        lang = Star.make(self)
+        # TODO: we are passing out hack along the way
+        lang._grammar = self._grammar
+        return lang
+
 
 class Reject(Language):
     def __init__(self):
@@ -57,6 +96,7 @@ class Match(Language):
         return self._ast
 
 reject = Reject()
+_ = None
 
 
 def is_match(language):
@@ -80,6 +120,21 @@ class RegExp(Language):
         return 'RegExp(%s)' % self.regexp.pattern
 
 
+class TokenClass(Language):
+
+    def __init__(self, token_class):
+        super(TokenClass, self).__init__()
+        self.token_class = token_class
+
+    def _derive(self, token):
+        if isinstance(token, self.token_class):
+            return Match([token])
+        return reject
+
+    def __repr__(self):
+        return 'TokenClass(%s)' % self.token_class.__name__
+
+
 class Or(Language):
 
     def __init__(self, left, right):
@@ -95,7 +150,7 @@ class Or(Language):
 
     def ast(self):
         left_ast = self.left.ast()
-        right_ast = right.ast()
+        right_ast = self.right.ast()
         ast = []
         for l in left_ast:
             for r in right_ast:
@@ -152,6 +207,7 @@ class And(Language):
     def ast(self):
         left_ast = self.left.ast()
         right_ast = self.right.ast()
+
         ast = []
         ast.extend(left_ast)
         ast.extend(right_ast)
@@ -186,6 +242,9 @@ class Star(Language):
     def ast(self):
         return self.language.ast()
 
+    def __repr__(self):
+        return 'Star(%s)' % self.language
+
     @staticmethod
     def make(language):
         if is_match(language):
@@ -213,6 +272,9 @@ class Reduce(Language):
     def ast(self):
         return [self.ast_creator(self.language.ast())]
 
+    def __repr__(self):
+        return 'Reduce(%s)' % self.language
+
     @staticmethod
     def make(language, ast_creator):
         if language is reject:
@@ -239,6 +301,9 @@ class Optional(Language):
     def ast(self):
         return self.language.ast()
 
+    def __repr__(self):
+        return 'Optional(%s)' % self.language
+
     @staticmethod
     def make(language):
         if is_match(language):
@@ -248,3 +313,143 @@ class Optional(Language):
             return reject
 
         return Optional(language)
+
+
+class Function(Language):
+
+    def __init__(self, name, cache):
+        super(Function, self).__init__()
+        self.name = name
+        self.cache = cache
+        self.called = False
+        self.value = []
+
+    def _derive(self, token):
+        return self.cache[self.name].derive(token)
+
+    def ast(self):
+        if self.called:
+            return self.value
+
+        self.called = True
+        value = result = None
+        lang = self.cache[self.name]
+
+        while(True):
+            value = lang.ast()
+            if result == value:
+                break
+            result = value
+
+        self.value = result
+        return result
+
+    def __repr__(self):
+        return 'Function(%s)' % self.name
+
+
+class Grammar(object):
+
+    def __init__(self):
+        self.cache = {}
+        self.recursion = []
+
+    def to_language(self, thing):
+        lang = None
+
+        if isinstance(thing, basestring) or isinstance(thing, str):
+            lang =  RegExp('^' + re.escape(thing) + '$')
+
+        elif isinstance(thing, Language):
+            lang = thing
+
+        elif inspect.isclass(thing) and issubclass(thing, lexer.Token):
+            lang = TokenClass(thing)
+
+        # Function
+        elif not inspect.isclass(thing) and hasattr(thing, '__call__'):
+            lang = self.function_to_language(thing)
+
+        elif isinstance(thing, list):
+            assert len(thing) == 1
+            lang = self.opt_(self.to_language(thing[0]))
+
+        if lang:
+            lang._grammar = self
+            return lang
+
+        raise Exception('Unknown thing %s' % thing)
+
+    def function_to_language(self, fn):
+        name = fn.func_name
+        if name in self.recursion:
+            self.recursion.remove(name)
+            return Function(name, self.cache)
+
+        self.recursion.append(name)
+        if name not in self.cache.keys():
+            self.cache[name] = self.to_language(fn())
+        return self.cache[name]
+
+    def and_(self, first, *args):
+        if len(args) == 1:
+            return And.make(self.to_language(first), self.to_language(args[0]))
+
+        result = And.make(self.to_language(first), self.to_language(args[0]))
+        for arg in args[1:]:
+            result = And.make(result, self.to_language(arg))
+        return result
+
+    def or_(self, first, *args):
+        if len(args) == 1:
+            return Or.make(self.to_language(first), self.to_language(args[0]))
+        result = Or.make(self.to_language(first), self.to_language(args[0]))
+
+        for arg in args[1:]:
+            result = Or.make(result, self.to_language(arg))
+        return result
+
+    def opt_(self, thing):
+        return Optional.make(self.to_language(thing))
+
+    def oneOrMore(self, parser):
+        return And.make(self.to_language(parser), Star.make(self.to_language(parser)))
+
+    def zeroOrMore(self, parser):
+        return Star.make(self.to_language(parser))
+
+    def __add__(self, other):
+        '''Syntactic sugar for +.
+        '''
+        # TODO: this is where it gets a bit hairy for the sytactic sugar
+        # to work proparly. We are going to set a hidden variable that points
+        # to `self`
+        language = self.to_language(other)
+        language._grammar = self
+        return language
+
+    def s(self, string):
+        return self.to_language(string)
+
+
+
+def language(func, *args):
+    def foo(grammar):
+
+        class Foo:
+            func_name = func.func_name
+            def __call__(self):
+                return func(grammar)
+
+            def __add__(self, other):
+                lang = And.make(grammar.to_language(func), grammar.to_language(other))
+                return grammar.to_language(lang)
+
+            # def __or__(self, other):
+            #     return self
+
+
+        return Foo()
+
+    return foo
+
