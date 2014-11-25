@@ -278,6 +278,9 @@ class Token(object):
         self.value = None
         self.position = None
 
+    def __repr__(self):
+        return 'Token(%s:%s)' % (self.value, self.position or '0')
+
 
 class State(object):
 
