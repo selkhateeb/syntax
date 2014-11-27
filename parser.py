@@ -316,9 +316,40 @@ class Optional(Language):
 
 
 class Function(Language):
+    def __init__(self, name, language):
+        super(Function, self).__init__()
+        self.name = name
+        self.language = language
+        self.called = False
+        self.value = []
+
+    def _derive(self, token):
+        return self.language.derive(token)
+
+    def ast(self):
+        if self.called:
+            return self.value
+
+        self.called = True
+        value = result = None
+
+        while(True):
+            value = self.language.ast()
+            if result == value:
+                break
+            result = value
+
+        self.value = result
+        return result
+
+    def __repr__(self):
+        return 'Function(%s)' % self.name
+
+
+class Cached(Language):
 
     def __init__(self, name, cache):
-        super(Function, self).__init__()
+        super(Cached, self).__init__()
         self.name = name
         self.cache = cache
         self.called = False
@@ -345,7 +376,8 @@ class Function(Language):
         return result
 
     def __repr__(self):
-        return 'Function(%s)' % self.name
+        return 'Cached(%s)' % self.name
+
 
 
 class Grammar(object):
@@ -384,14 +416,16 @@ class Grammar(object):
         name = fn.func_name
         if name in self.recursion:
             self.recursion.remove(name)
-            return Function(name, self.cache)
+            return Cached(name, self.cache)
 
         self.recursion.append(name)
         if name not in self.cache.keys():
-            self.cache[name] = self.to_language(fn())
+            self.cache[name] = Function(name, self.to_language(fn()))
         return self.cache[name]
 
     def and_(self, first, *args):
+        if not args:
+            return first
         if len(args) == 1:
             return And.make(self.to_language(first), self.to_language(args[0]))
 
@@ -409,7 +443,7 @@ class Grammar(object):
             result = Or.make(result, self.to_language(arg))
         return result
 
-    def opt_(self, thing):
+    def opt(self, thing):
         return Optional.make(self.to_language(thing))
 
     def oneOrMore(self, parser):
@@ -418,38 +452,30 @@ class Grammar(object):
     def zeroOrMore(self, parser):
         return Star.make(self.to_language(parser))
 
-    def __add__(self, other):
-        '''Syntactic sugar for +.
-        '''
-        # TODO: this is where it gets a bit hairy for the sytactic sugar
-        # to work proparly. We are going to set a hidden variable that points
-        # to `self`
-        language = self.to_language(other)
-        language._grammar = self
-        return language
+    def get_fn(self, fn):
+        return {
+            '+': self.and_,
+            '|': self.or_,
+            '?': self.opt,
+            '.*': self.zeroOrMore,
+            '.+': self.oneOrMore,
 
-    def s(self, string):
-        return self.to_language(string)
+        }[fn]
 
+
+def sexp_grammar_eval(grammar, thing):
+    if not isinstance(thing, tuple):
+        return thing
+
+    else:
+        fn = grammar.get_fn(thing[0])
+        return apply(fn, [sexp_grammar_eval(grammar, _) for _ in thing[1:]])
 
 
 def language(func, *args):
-    def foo(grammar):
+    def fn(grammar):
+            return sexp_grammar_eval(grammar, func(grammar))
 
-        class Foo:
-            func_name = func.func_name
-            def __call__(self):
-                return func(grammar)
-
-            def __add__(self, other):
-                lang = And.make(grammar.to_language(func), grammar.to_language(other))
-                return grammar.to_language(lang)
-
-            # def __or__(self, other):
-            #     return self
-
-
-        return Foo()
-
-    return foo
-
+    # Keep the function name to be used for caching
+    fn.func_name = func.func_name
+    return fn
