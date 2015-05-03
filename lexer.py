@@ -34,6 +34,11 @@ class Reject(Language):
     def derive(self, ch):
         return reject
 
+    def __repr__(self):
+        return 'Reject'
+
+
+
 
 class Match(Language):
     '''A [Language] that matches the defined [Language].
@@ -44,6 +49,10 @@ class Match(Language):
 
     def derive(self, ch):
         return reject
+
+    def __repr__(self):
+        return 'Match'
+
 
 reject = Reject()
 match = Match()
@@ -60,6 +69,9 @@ class Character(Language):
         if self.char == ch:
             return match
         return reject
+
+    def __repr__(self):
+        return 'C(%s)' % self.char
 
 
 class Or(Language):
@@ -87,6 +99,9 @@ class Or(Language):
         if (left is match or right is match):
             return match
         return Or(left, right)
+
+    def __repr__(self):
+        return 'Or(%s, %s)' % (self.left, self.right)
 
 
 class And(Language):
@@ -117,6 +132,8 @@ class And(Language):
 
         return And(left, right)
 
+    def __repr__(self):
+        return 'And(%s, %s)' % (self.left, self.right)
 
 class Star(Language):
     '''A [Language] that matches the kleene star of a [Language].
@@ -137,6 +154,8 @@ class Star(Language):
             return language
         return Star(language)
 
+    def __repr__(self):
+        return 'Star(%s)' % (self.language)
 
 class Optional(Language):
     '''A [Language] that matches zero or one of a [Language].
@@ -147,7 +166,7 @@ class Optional(Language):
     def is_matchable(self):
         return True
 
-    def derivce(self, ch):
+    def derive(self, ch):
         return self.language.derive(ch)
 
     @staticmethod
@@ -156,12 +175,15 @@ class Optional(Language):
             return language
         return Optional(language)
 
+    def __repr__(self):
+        return 'Optional(%s)' % (self.language)
 
 class RegExp(Language):
     '''Helper [Language] represents a regular expression matcher.
     '''
 
     def __init__(self, regex):
+        self._regex = regex
         self.regexp = re.compile(regex)
 
     def derive(self, ch):
@@ -169,6 +191,8 @@ class RegExp(Language):
             return match
         return reject
 
+    def __repr__(self):
+        return 'RE(%s)' % (self._regex)
 
 class Not(Language):
     '''Helper [Language] represents the revese of another [Language].
@@ -372,7 +396,6 @@ class Lexer(object):
         self.remaining_input = None
 
     def next(self, ch):
-
         self.current_state = self.current_state.next(ch, self)
         if self.current_state.has_exact_match():
             self.last_matching_state = self.current_state
