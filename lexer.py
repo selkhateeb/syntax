@@ -297,10 +297,24 @@ class Rule(object):
             return next_state
         self.action = _action
 
+    def __repr__(self):
+        return 'Rule(%s)' % (self.language)
+
 class Token(object):
     def __init__(self):
         self.value = None
         self.position = None
+        self.skip = False
+
+    def __new__(cls, skip=False):
+        def init(instance, skip=skip):
+            instance.skip = skip
+
+        # TODO(Sam): This will replace the orginal __init__. We probably should
+        #            not do that and call this method too.
+        cls.__init__ = init
+        instance = super(Token, cls).__new__(cls)
+        return instance
 
     def __repr__(self):
         return 'Token(%s:%s)' % (self.value, self.position or '0')
@@ -427,7 +441,8 @@ class Lexer(object):
 
                 return self.current_state
 
-        raise Exception('No rule defined for input [%s].' % self.current_state.matched_input)
+        raise Exception('No rule defined for input [%s] at position %s.' % (
+            self.current_state.matched_input, self.position))
 
     def get_remaining_input(self, left, right):
         return re.sub('^' + re.escape(right.matched_input), '', left.matched_input)

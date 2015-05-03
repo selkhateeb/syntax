@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import re
+import sys
 import inspect
 
 import lexer
@@ -379,8 +380,7 @@ class Cached(Language):
         return 'Cached(%s)' % self.name
 
 
-
-class Grammar(object):
+class _Builder(object):
 
     def __init__(self):
         self.cache = {}
@@ -390,7 +390,7 @@ class Grammar(object):
         lang = None
 
         if isinstance(thing, basestring) or isinstance(thing, str):
-            lang =  RegExp('^' + re.escape(thing) + '$')
+            lang = RegExp('^' + re.escape(thing) + '$')
 
         elif isinstance(thing, Language):
             lang = thing
@@ -452,6 +452,9 @@ class Grammar(object):
     def zeroOrMore(self, parser):
         return Star.make(self.to_language(parser))
 
+    def reduce(self, action, parser):
+        return Reduce.make(self.to_language(parser), action)
+
     def get_fn(self, fn):
         return {
             '+': self.and_,
@@ -459,9 +462,23 @@ class Grammar(object):
             '?': self.opt,
             '.*': self.zeroOrMore,
             '.+': self.oneOrMore,
-
+            '=>': self.reduce,
         }[fn]
 
+class Grammar(_Builder):
+    def main(self):
+        raise "Must be overriden and specifies entrypoint grammer."
+
+    def derive(self, tokens):
+        d = self.main()
+        for t in tokens:
+            if not t.skip:
+                d = d.derive(t)
+            if isinstance(d, Reject):
+                print "Rejected: %s" % t
+                d = self.main()
+                break
+        return d
 
 def sexp_grammar_eval(grammar, thing):
     if not isinstance(thing, tuple):
@@ -474,7 +491,7 @@ def sexp_grammar_eval(grammar, thing):
 
 def language(func, *args):
     def fn(grammar):
-            return sexp_grammar_eval(grammar, func(grammar))
+        return sexp_grammar_eval(grammar, func(grammar))
 
     # Keep the function name to be used for caching
     fn.func_name = func.func_name

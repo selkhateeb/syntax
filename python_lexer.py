@@ -1,5 +1,7 @@
 #! /usr/bin/env python
+import sys
 from lexer import LETTER, DIGIT, _, State, RegExp, Lexer, Token, Character
+from lexer import Optional, HEX
 
 identifier = (LETTER | '_') + (LETTER | DIGIT | '_') *_
 
@@ -8,10 +10,57 @@ keywords = ['and', 'del', 'from', 'not', 'while', 'as', 'elif', 'global', 'or',
             'import', 'print', 'class', 'exec', 'in', 'raise', 'continue',
             'finally', 'is', 'return', 'def', 'for', 'lambda', 'try', ]
 
+tokens = '( ) [ ] { } @ : . , ` ; = += -= *= /= //= %= &= |= ^= >>= <<= **='.split()
+operators = '+ - * ** / // % << >> & | ^ ~ < > <= >= == != <>'.split()
+
+ws = RegExp('[ \t\f]')
 whitespace = RegExp('[ \t\f]')+_
-newline = Character('\n') + whitespace*_
-comments = Character('#') + RegExp('[^\n]')*_
+newline = Character('\n') + ws*_
+comments = Character('#') + RegExp('[^\\n]')*_
 line_continuation = '\\\n'
+
+escapeseq = Character('\\') + RegExp(r'[\x00-\x7F]')
+longstringchar = RegExp('[^\\\]')
+shortstringchar_single_qoute =  RegExp("[^\\\\\n']")
+shortstringchar_double_qoute =  RegExp('[^\\\\\n"]')
+longstringitem = longstringchar | escapeseq
+shortstringitem_single_qoute =  shortstringchar_single_qoute | escapeseq
+shortstringitem_double_qoute =  shortstringchar_double_qoute | escapeseq
+q = Character("'")
+dq = Character('"')
+longstring =  ((q + q + q + longstringitem*_ + q + q + q)
+               | (dq + dq + dq + longstringitem*_ + dq + dq + dq))
+shortstring = (q + shortstringitem_single_qoute*_ + q
+               | dq + shortstringitem_double_qoute*_ + dq)
+
+stringprefix =  (Character("r")
+                 | Character("u")
+                 | Character("ur")
+                 | Character("R")
+                 | Character("U")
+                 | Character("UR")
+                 | Character("Ur")
+                 | Character("uR")
+                 | Character("b")
+                 | Character("B")
+                 | Character("br")
+                 | Character("Br")
+                 | Character("bR")
+                 | Character("BR"))
+stringliteral =  Optional(stringprefix) + (shortstring | longstring)
+
+digit = DIGIT
+hexdigit = HEX
+nonzerodigit =  RegExp('[1-9]')
+octdigit =  RegExp('[0-7]')
+bindigit =  RegExp('[01]')
+octinteger = Character("0") + RegExp('[oO]') + octdigit+_ | Character("0") + octdigit+_
+hexinteger = Character("0") + RegExp('[xX]') + hexdigit+_
+bininteger = Character("0") + RegExp('[bB]') + bindigit+_
+decimalinteger =  nonzerodigit + digit*_ | "0"
+integer = decimalinteger | octinteger | hexinteger | bininteger
+longinteger =  integer + RegExp("[lL]")
+
 
 class Identifier(Token): pass
 class Keyword(Token): pass
@@ -41,14 +90,30 @@ class Main(State):
         for keyword in keywords:
             self / keyword / (lambda: Keyword())
 
-        self / identifier / (lambda: Identifier())
-        self / whitespace / (lambda: Whitespace())
-        self / comments   / (lambda: Comment())
-        self / line_continuation / (lambda: LineContinuation())
+        for token in tokens:
+            self / token / (lambda: Token())
 
-        self / newline    >> self.indent
+        for operator in operators:
+            self / operator / (lambda: Token())
+
+        self / identifier        / (lambda: Identifier())
+        self / whitespace        / (lambda: Whitespace())
+        self / comments          / (lambda: Comment())
+        self / line_continuation / (lambda: LineContinuation())
+#        self / stringliteral     /
+        self / shortstring       / (lambda: StringLiteral())
+        self / longstring        / (lambda: StringLiteral())
+
+
+        self / integer           / (lambda: Integer())
+        self / longinteger       / (lambda: LongInteger())
+
+        #self / newline    >> self.indent
+        self / newline    / (lambda: NewLine())
+
 
     def indent(self, state, lexer):
+        print 'indent'
         indent = state.matched_input.replace('\n', '').replace('\t', '        ')
         level = len(indent)
         if level > self.indentation[-1]:
@@ -81,4 +146,5 @@ class Output(object):
 
 if __name__ == '__main__':
     lexer = Lexer(initial_state=Main, output=Output())
-    lexer.lex('foo bar tar def \n    return \nfinally final \\\nfinally # else    \nelif')
+    lexer.lex(open(sys.argv[1]).read())
+    #lexer.lex('\n                                   ')
