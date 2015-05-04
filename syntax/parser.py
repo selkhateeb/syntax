@@ -43,7 +43,7 @@ class Language(object):
             assert len(other) == 1
             language = Optional.make(other[0])
 
-        elif other == _: # one or more
+        elif other == _:  # one or more
             language = Star.make(self)
 
         else:
@@ -447,7 +447,8 @@ class _Builder(object):
         return Optional.make(self.to_language(thing))
 
     def oneOrMore(self, parser):
-        return And.make(self.to_language(parser), Star.make(self.to_language(parser)))
+        return And.make(self.to_language(parser),
+                        Star.make(self.to_language(parser)))
 
     def zeroOrMore(self, parser):
         return Star.make(self.to_language(parser))
@@ -465,6 +466,7 @@ class _Builder(object):
             '=>': self.reduce,
         }[fn]
 
+
 class Grammar(_Builder):
     def main(self):
         raise "Must be overriden and specifies entrypoint grammer."
@@ -479,6 +481,7 @@ class Grammar(_Builder):
                 d = self.main()
                 break
         return d
+
 
 def sexp_grammar_eval(grammar, thing):
     if not isinstance(thing, tuple):

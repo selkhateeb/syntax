@@ -1,9 +1,12 @@
 #! /usr/bin/env python
 
 import sys
-from lexer import LETTER, DIGIT, _, State, RegExp, Lexer, Token, Character
-from lexer import Optional, HEX
-from parser import Grammar, TokenClass, _, language
+# from lexer import LETTER, DIGIT, _, State, RegExp, Lexer, Token, Character
+# from lexer import Optional, HEX
+# from parser import Grammar, TokenClass, _, language
+
+from syntax import LETTER, DIGIT, _, State, RegExp, Lexer, Token, Character
+from syntax import Grammar, HEX, language
 
 identifier = (LETTER | '_') + (LETTER | DIGIT | '_') * _
 

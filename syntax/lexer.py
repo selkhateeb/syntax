@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 import re
 
 
@@ -9,7 +7,8 @@ class Language(object):
         return False
 
     def derive(self, ch):
-        raise Exception("Not Implemented. %s Trying to derive char:'%s'." % (type(self), ch))
+        raise Exception("Not Implemented. %s Trying to derive char:'%s'." %
+                        (type(self), ch))
 
     def __add__(self, other):
         _other = other
@@ -36,8 +35,6 @@ class Reject(Language):
 
     def __repr__(self):
         return 'Reject'
-
-
 
 
 class Match(Language):
@@ -135,6 +132,7 @@ class And(Language):
     def __repr__(self):
         return 'And(%s, %s)' % (self.left, self.right)
 
+
 class Star(Language):
     '''A [Language] that matches the kleene star of a [Language].
     '''
@@ -157,6 +155,7 @@ class Star(Language):
     def __repr__(self):
         return 'Star(%s)' % (self.language)
 
+
 class Optional(Language):
     '''A [Language] that matches zero or one of a [Language].
     '''
@@ -178,6 +177,7 @@ class Optional(Language):
     def __repr__(self):
         return 'Optional(%s)' % (self.language)
 
+
 class RegExp(Language):
     '''Helper [Language] represents a regular expression matcher.
     '''
@@ -193,6 +193,7 @@ class RegExp(Language):
 
     def __repr__(self):
         return 'RE(%s)' % (self._regex)
+
 
 class Not(Language):
     '''Helper [Language] represents the revese of another [Language].
@@ -223,7 +224,7 @@ class NotCharacter(Character):
 LETTER = RegExp('[a-zA-Z]')
 DIGIT = RegExp('[0-9]')
 HEX = RegExp('[0-9a-fA-F]')
-NEWLINE = RegExp('[\r\n]')
+NEWLINE = Optional(RegExp('[\r]')) + RegExp('[\n]')
 _ = None  # Used for +_ and *_
 
 
@@ -299,6 +300,7 @@ class Rule(object):
 
     def __repr__(self):
         return 'Rule(%s)' % (self.language)
+
 
 class Token(object):
     def __init__(self):
@@ -380,6 +382,7 @@ class State(object):
         '''Syntactic sugure for defining rules.
         '''
         return self.on(thing)
+
 
 class RejectState(State):
 
