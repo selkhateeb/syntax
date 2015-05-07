@@ -47,8 +47,9 @@ class Number(Token): pass
 class String(Token): pass
 class Boolean(Token): pass
 
+
 class Main(State):
-    '''Entry point for the lexer.
+    '''Main entry state for the lexer.
     '''
 
     def __init__(self):
@@ -75,17 +76,6 @@ class Main(State):
         self / number             / (lambda: Number())
         self / string             / (lambda: String())
 
-class Output(object):
-    def __init__(self):
-        self.tokens = []
-
-    def add(self, token):
-        self.tokens.append(token)
-        #sys.stdout.write(token.value)
-        print("%s:'%s':%s" % (token.__class__.__name__, token.value, token.position))
-
-def Package(foo):
-    print foo
 
 class JavaGrammar(Grammar):
 
@@ -165,6 +155,24 @@ class JavaGrammar(Grammar):
                 self.identifier_dotted,
                 Identifier,
                 ';')
+
+
+def Package(foo):
+    print foo
+
+class Output(object):
+    '''Lexer output operations.
+
+    Simply append them to a list of tokens. This is just a simple way to do it.
+    We could actually start parsing the tokens as soon as we get them.
+    '''
+    def __init__(self):
+        self.tokens = []
+
+    def add(self, token):
+        self.tokens.append(token)
+        #print("%s:'%s':%s" % (token.__class__.__name__, token.value, token.position))
+
 
 
 if __name__ == '__main__':
