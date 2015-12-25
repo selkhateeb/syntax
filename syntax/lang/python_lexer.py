@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 import sys
-from lexer import LETTER, DIGIT, _, State, RegExp, Lexer, Token, Character
-from lexer import Optional, HEX
+from syntax import LETTER, DIGIT, _, State, RegExp, Lexer, Token, Character
+from syntax import Optional, HEX
 
 identifier = (LETTER | '_') + (LETTER | DIGIT | '_') *_
 

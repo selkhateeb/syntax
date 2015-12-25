@@ -319,7 +319,8 @@ class Token(object):
         return instance
 
     def __repr__(self):
-        return 'Token(%s:%s)' % (self.value, self.position or '0')
+        return '%s(%s:%s)' % (
+            self.__class__.__name__, self.value, self.position or '0')
 
 
 class State(object):
