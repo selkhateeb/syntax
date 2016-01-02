@@ -175,9 +175,9 @@ class AttributeNode(object):
         self.value = value
 
     def accept(self, visitor):
-        vistor.visitAttributeName(self.name)
+        visitor.visitAttributeName(self.name)
         if self.value:
-            vistor.visitAttributeValue(self.name)
+            visitor.visitAttributeValue(self.value)
 
     def __repr__(self):
         return '%s="%s"' % (self.name, self.value)
@@ -193,6 +193,7 @@ class StartTagNode(object):
         visitor.visitStartTagName(self.name)
         for attribute in self.attributes:
             attribute.accept(visitor)
+        visitor.visitStartTagEnd()
 
     def __repr__(self):
         return '%s%s' % (self.name, self.attributes)
@@ -272,19 +273,34 @@ class TextNode(Node):
 class Printer:
     def __init__(self):
         self.indentation = 0
-    def visitStartTag(self, tag):
-        print '%s<%s>' %('  ' * self.indentation, tag)
+
+    def p(self, v):
+        sys.stdout.write(v)
+
+    def visitStartTagName(self, name):
+        self.p( '%s<%s' %('  ' * self.indentation, name.value) )
         self.indentation += 1
 
-    def visitEndTag(self, tag):
-        self.indentation -= 1
-        print '%s</%s>' %('  ' * self.indentation, tag)
+    def visitStartTagEnd(self):
+        self.p('>\n')
 
-    def visitVoidTag(self, tag):
-        print '%s%s' %('  ' * self.indentation, tag)
+    def visitAttributeName(self, name):
+        self.p(' ' + name.value)
 
-    def visitText(self, text):
-        print '%s%s' %('  ' * self.indentation, text)
+    def visitAttributeValue(self, value):
+        self.p(value.value)
+
+
+
+    # def visitEndTag(self, tag):
+    #     self.indentation -= 1
+    #     print '%s</%s>' %('  ' * self.indentation, tag)
+
+    # def visitVoidTag(self, tag):
+    #     print '%s%s' %('  ' * self.indentation, tag)
+
+    # def visitText(self, text):
+    #     print '%s%s' %('  ' * self.indentation, text)
 
 
 
