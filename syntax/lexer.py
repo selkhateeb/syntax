@@ -286,6 +286,37 @@ class Rule(object):
         self.action = action
         return self.action
 
+    def switch_to(self, new_state):
+        def _action(state, lexer):
+            next_state = new_state()
+            lexer.pop()
+            lexer.push(new_state)
+            next_state.matched_input = state.matched_input
+            return next_state
+        self.action = _action
+        return self
+
+    def consume_then_switch_to(self, new_state):
+        def _action(state, lexer):
+            lexer.position += len(state.matched_input)
+            next_state = new_state()
+            lexer.pop()
+            lexer.push(new_state)
+            return next_state
+        self.action = _action
+        return self
+
+    def emit_then_switch_to(self, token_creator, new_state):
+        def action(state, lexer):
+            token = token_creator()
+            token.value = state.matched_input
+            token.position = lexer.position
+            lexer.pop()
+            lexer.push(new_state)
+            return lexer.emit(token, state)
+        self.action = action
+        return self.action
+
     def __div__(self, token_creator):
         '''Syntactic suguar to add an action.
         '''

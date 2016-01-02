@@ -271,7 +271,10 @@ class Reduce(Language):
         return Reduce.make(self.language.derive(token), self.ast_creator)
 
     def ast(self):
-        ast = self.ast_creator(self.language.ast())
+        lang_ast = self.language.ast()
+        ast = None
+        if lang_ast:
+            ast = self.ast_creator(lang_ast)
         return [ast] if ast else []
 
     def __repr__(self):

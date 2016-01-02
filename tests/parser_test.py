@@ -1,6 +1,6 @@
 import unittest
-import parser
-import lexer
+from syntax import parser
+from syntax import lexer
 
 
 def T(value):
@@ -57,6 +57,7 @@ class TestParser(unittest.TestCase):
         self.assertTrue(parser.is_match(deriv))
         self.assertEquals(len(deriv.ast()), 1)
         self.assertEquals(deriv.ast()[0].value, 'a')
+
 
     def test_star(self):
         regex = parser.RegExp('^a$')

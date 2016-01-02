@@ -29,6 +29,47 @@ class Text(Token): pass
 class Comment(Token): pass
 
 
+class Id(Token): pass
+class WhiteSpace(Token): pass
+class Equal(Token): pass
+class StringStart(Token): pass
+class StringContent(Token): pass
+class StringEnd(Token): pass
+class Attribute(Token): pass
+
+id = RegExp('[^\'"<>/=\s]') +_
+whitspace = RegExp('\s') +_
+attribute = id + Character('=')
+
+
+class String(State):
+    '''
+    '''
+
+    def __init__(self, marker):
+        super(String, self).__init__()
+
+        self.on(marker).emit_then_switch_to(StringEnd, StartTag)
+
+        self.on( RegExp('[^' + marker + ']')*_ ).emit(StringContent)
+
+
+class StartTag(State):
+    '''Represents everything between '<' and '>'
+    '''
+
+    def __init__(self):
+        super(StartTag, self).__init__()
+
+        self.on('>').emit_then_switch_to(End, Main)
+        self.on('"').emit_then_switch_to(StringStart, lambda: String('"'))
+        self.on("'").emit_then_switch_to(StringStart, lambda: String("'"))
+
+        self.on( whitspace ).emit( WhiteSpace )
+        self.on( id        ).emit( Id         )
+        self.on( attribute ).emit( Attribute  )
+
+
 class Main(State):
     '''Main starting State for the lexer tokenizer.
     '''
@@ -36,11 +77,15 @@ class Main(State):
     def __init__(self):
         super(Main, self).__init__()
 
-        self / comment / (lambda: Comment())
-        self / end / (lambda: End())
-        self / void / (lambda: Void())
-        self / start / (lambda: Start())
-        self / text / (lambda: Text())
+        #self.on('<').switch_to(StartTag)
+        #self.on('<').consume_then_switch_to(StartTag)
+        self.on('<').emit_then_switch_to(Start, StartTag)
+
+        # self.on( comment ).emit( lambda: Comment() )
+        # self.on( end     ).emit( lambda: End()     )
+        # self.on( void    ).emit( lambda: Void()    )
+        # self.on( start   ).emit( lambda: Start()   )
+        # self.on( text    ).emit( lambda: Text()    )
 
 
 class Output(object):
@@ -85,6 +130,72 @@ class HtmlGrammar(Grammar):
     def text(self):
         return ('=>', node_creator(TextNode),
                 ('|', Text, Comment))
+
+
+    @language
+    def start_tag(self):
+        def _(tokens):
+            return StartTagNode(tokens[1], tokens[2:-2])
+
+        return ('=>', _,
+                ('+', Start, Id, ('.+', self.attribute), End))
+
+
+    @language
+    def attribute(self):
+
+        def attribute(tokens):
+            '''
+            one of:
+             - [ Id ]
+             - [ Attribute, Id ]
+             - [ Attribute, StringStart, StringContent, StringEnd ]
+
+            '''
+            print tokens
+            return {
+                1: lambda _: AttributeNode(_),
+                2: lambda n, v: AttributeNode(n, v),
+                4: lambda n,_1, v, _2: AttributeNode(n, v)
+            }[len(tokens)](*tokens)
+
+
+        return ('=>', attribute,
+                ('|',
+                 Id,
+                 ('+', Attribute, Id),
+                 ('+', Attribute, StringStart, StringContent, StringEnd)))
+
+
+
+
+class AttributeNode(object):
+    def __init__(self, name, value=None):
+        self.name = name
+        self.value = value
+
+    def accept(self, visitor):
+        vistor.visitAttributeName(self.name)
+        if self.value:
+            vistor.visitAttributeValue(self.name)
+
+    def __repr__(self):
+        return '%s="%s"' % (self.name, self.value)
+
+
+class StartTagNode(object):
+
+    def __init__(self, name, attributes):
+        self.name = name
+        self.attributes = attributes
+
+    def accept(self, visitor):
+        visitor.visitStartTagName(self.name)
+        for attribute in self.attributes:
+            attribute.accept(visitor)
+
+    def __repr__(self):
+        return '%s%s' % (self.name, self.attributes)
 
 
 # TODO: This should be translated into __new__
@@ -176,6 +287,7 @@ class Printer:
         print '%s%s' %('  ' * self.indentation, text)
 
 
+
 def parse(filename):
     out = Output()
     lexer = Lexer(initial_state=Main, output=out)
@@ -203,6 +315,41 @@ def parse(filename):
 
 
 if __name__ == '__main__':
-    for _ in sys.argv[1:]:
-        print _
-        parse(_)
+    if sys.argv[1:]:
+        for _ in sys.argv[1:]:
+            print _
+            parse(_)
+
+    else:
+        out = Output()
+        lexer = Lexer(initial_state=Main, output=out)
+        lexer.lex('<starting fr to=a ff="kfljsd">')
+        print '\n'.join([str(_) for _ in out.tokens])
+
+
+        print "Starting to Parse ... "
+        g = HtmlGrammar()
+        d = g.start_tag()
+        #print g.attribute()
+        ds = [d]
+        for i, token in enumerate(out.tokens):
+            if isinstance(token, WhiteSpace):
+                continue
+            #print token
+            try:
+                d = d.derive(token)
+                ds.append(d)
+                #print d
+                if isinstance(d, parser.Reject):
+                    print token.value
+                    raise Exception(str(token))
+            except ParseError, e:
+                print e
+                print('%s:%s' % (token.value, token.position))
+                break
+
+        #print d.ast()
+        tree = d.ast()[0]
+        print tree
+        tree.accept(Printer())
+
