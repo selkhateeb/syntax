@@ -1,6 +1,6 @@
 from python_lexer import Identifier, NewLine, Indent, Dedent, Token
 
-from parser import Grammar, TokenClass, _, language
+from syntax.parser import Grammar, TokenClass, _, language
 
 #TODO: what is NAME, NUMBER, STRING
 NAME = Identifier
@@ -10,6 +10,15 @@ DEDENT = Dedent
 NUMBER = Identifier #TODO
 STRING = Identifier #TODO
 ENDMARKER = Identifier #TODO
+
+class AugAssign:
+    def __init__(self, tokens):
+        print(args)
+
+class DottedName:
+    def __init__(self, tokens):
+        print("DottedName(%s)" % tokens)
+        self.tokens = tokens
 
 
 class PythonGrammar(Grammar):
@@ -139,7 +148,7 @@ class PythonGrammar(Grammar):
                        ('|', self.yield_expr, self.testlist)),
                  ('.*', ('+', '=', ('|', self.yield_expr, self.testlist)))))
 
-    @language
+    @language(AugAssign)
     def augassign(self):
         '''augassign: ('+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' |
             '<<=' | '>>=' | '**=' | '//=')
@@ -261,7 +270,7 @@ class PythonGrammar(Grammar):
         return ('+', self.dotted_as_name,
                 ('.*', ('+', ',', self.dotted_as_name)))
 
-    @language
+    @language(DottedName)
     def dotted_name(self):
         '''dotted_name: NAME ('.' NAME)*
         '''
@@ -664,15 +673,22 @@ def T(v):
     return t
 
 if __name__ == '__main__':
+    from python_lexer import PythonLexer
+    import sys
+    tokens = []
+    def tokens_to_list(token):
+        tokens.append(token)
+
+    l = PythonLexer('abc.de.xyz')
+    l.lex(fn=tokens_to_list)
+
     g = PythonGrammar()
-
-    g.single_input()
-    print g.file_input()
-    g.eval_input()
-
-    d = g.file_input()
-    id = Identifier()
-    id.value = 're'
-    for t in [T('import'), id]:
+    d = g.dotted_name()
+    print(d)
+    for t in tokens:
         d = d.derive(t)
-        print d
+        print(t)
+        print(d)
+        if d.__class__.__name__ == 'Reject':
+            break
+    print(d.ast()[0].tokens)

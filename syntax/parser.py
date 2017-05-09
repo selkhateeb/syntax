@@ -4,7 +4,7 @@ import re
 import sys
 import inspect
 
-import lexer
+from syntax import lexer
 
 
 class Language(object):
@@ -393,7 +393,7 @@ class _Builder(object):
     def to_language(self, thing):
         lang = None
 
-        if isinstance(thing, basestring) or isinstance(thing, str):
+        if isinstance(thing, str):
             lang = RegExp('^' + re.escape(thing) + '$')
 
         elif isinstance(thing, Language):
@@ -481,7 +481,7 @@ class Grammar(_Builder):
             if not t.skip:
                 d = d.derive(t)
             if isinstance(d, Reject):
-                print "Rejected: %s" % t
+                print("Rejected: %s" % t)
                 d = self.main()
                 break
         return d
@@ -493,13 +493,21 @@ def sexp_grammar_eval(grammar, thing):
 
     else:
         fn = grammar.get_fn(thing[0])
-        return apply(fn, [sexp_grammar_eval(grammar, _) for _ in thing[1:]])
+        return fn(*[sexp_grammar_eval(grammar, _) for _ in thing[1:]])
 
 
-def language(func, *args):
-    def fn(grammar):
-        return sexp_grammar_eval(grammar, func(grammar))
+# Language decorator
+class language(object):
+    def __init__(self, produce_type=None):
+        self.produce_type = produce_type
 
-    # Keep the function name to be used for caching
-    fn.func_name = func.func_name
-    return fn
+    def __call__(self, func):
+        def reduce_fn(tree):
+            return self.produce_type(tree)
+
+        def fn(grammar):
+            return sexp_grammar_eval(grammar, ('=>', reduce_fn, func(grammar)))
+
+        # Keep the function name to be used for caching
+        self.func_name = func.__name__
+        return fn

@@ -12,10 +12,10 @@ class Language(object):
 
     def __add__(self, other):
         _other = other
-        if other is None:  # one or more '*_' syntax
+        if other is None:  # one or more '+_' syntax
             _other = Star.make(self)
 
-        if isinstance(other, basestring) or isinstance(other, str):
+        if isinstance(other, (str,bytes)) or isinstance(other, str):
             _other = Character(other)
 
         return And.make(self, _other)
@@ -245,7 +245,7 @@ def to_language(thing):
     '''Helper function that tries to convert thing to a Language.
     '''
 
-    if isinstance(thing, basestring) or isinstance(thing, str):
+    if isinstance(thing, str):
         return word(thing)
 
     if isinstance(thing, Language):
@@ -354,7 +354,7 @@ class Token(object):
             self.__class__.__name__, self.value, self.position or '0')
 
 
-class State(object):
+class State:
 
     def __init__(self, matched_input='', rules=None):
         self.matched_input = matched_input
@@ -410,7 +410,7 @@ class State(object):
         self.rules.append(rule)
         return rule
 
-    def __div__(self, thing):
+    def __truediv__(self, thing):
         '''Syntactic sugure for defining rules.
         '''
         return self.on(thing)

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 import sys
-from syntax import LETTER, DIGIT, _, State, RegExp, Lexer, Token, Character
-from syntax import Optional, HEX
+from syntax.lexer import LETTER, DIGIT, _, State, RegExp, Lexer, Token, Character
+from syntax.lexer import Optional, HEX
 
 identifier = (LETTER | '_') + (LETTER | DIGIT | '_') *_
 
@@ -113,7 +113,7 @@ class Main(State):
 
 
     def indent(self, state, lexer):
-        print 'indent'
+        print('indent')
         indent = state.matched_input.replace('\n', '').replace('\t', '        ')
         level = len(indent)
         if level > self.indentation[-1]:
@@ -144,7 +144,24 @@ class Output(object):
     def add(self, token):
         print("%s:'%s':%s" % (token.__class__.__name__, token.value, token.position))
 
+
+class PythonLexer:
+    def __init__(self, script):
+        self.script = script
+        self.output = Output()
+        self.lexer = Lexer(initial_state=Main, output=self.output)
+
+    def lex(self, fn=None):
+        if fn:
+            self.output.add = fn
+        self.lexer.lex(self.script)
+
+
+
 if __name__ == '__main__':
-    lexer = Lexer(initial_state=Main, output=Output())
-    lexer.lex(open(sys.argv[1]).read())
+    #lexer = Lexer(initial_state=Main, output=Output())
+    #lexer.lex(open(sys.argv[1]).read())
     #lexer.lex('\n                                   ')
+
+    l = PythonLexer(open(sys.argv[1]).read())
+    l.lex()
