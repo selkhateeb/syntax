@@ -1,2 +1,7 @@
 *.pyc
 *.egg-info
+cc/bazel-bin
+cc/bazel-cc
+cc/bazel-genfiles
+cc/bazel-out
+cc/bazel-testlogs
